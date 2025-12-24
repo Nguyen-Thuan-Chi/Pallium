@@ -1,0 +1,56 @@
+# --- Python & Runtime ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- PyCharm / JetBrains (CỰC QUAN TRỌNG) ---
+.idea/
+*.iml
+
+# --- Environment Variables (SỐNG CÒN) ---
+.env
+.env.local
+.env.*.local
+
+# --- Database ---
+*.sqlite
+*.sqlite3
+*.db
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+# --- VS Code ---
+.vscode/
+
+# --- Frontend Dependencies ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Frontend Build ---
+.cache/
+.parcel-cache/
+
