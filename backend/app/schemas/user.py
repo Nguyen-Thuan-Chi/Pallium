@@ -22,3 +22,8 @@ class UserResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+# --- THÊM CLASS NÀY ĐỂ FIX LỖI IMPORT Ở DEPS.PY ---
+class TokenPayload(BaseModel):
+    sub: Optional[str] = None
+    mode: str = "normal"  # Mặc định là normal, nếu là SOS sẽ là "duress"

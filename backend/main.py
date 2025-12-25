@@ -1,23 +1,42 @@
-# backend/main.py (Cập nhật)
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
-from backend.app.api.v1.router import api_router # Import router tổng
+from backend.app.api.v1.router import api_router
+from backend.app.core.config import settings
+from backend.app.db.base import Base, engine
 
-app = FastAPI(title="Pallium API")
-origins = [
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-]
-# ... (Giữ nguyên phần CORS) ...
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # Cho phép mọi nguồn (Frontend port 5500)
-    allow_credentials=True,
-    allow_methods=["*"], # QUAN TRỌNG: Cho phép cả POST, GET, OPTIONS...
-    allow_headers=["*"],
+# --- Import Models để SQLAlchemy nhận diện bảng ---
+from backend.app.models import user, vault_item
+
+# --- HÀM LIFESPAN: TẠO BẢNG KHI SERVER KHỞI ĐỘNG ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Tạo bảng (Async way)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    # Code chạy khi server tắt (nếu cần)
+
+# --- KHỞI TẠO APP VỚI LIFESPAN ---
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan # <--- Gắn hàm tạo bảng vào đây
 )
-# Include Router
-app.include_router(api_router, prefix="/api/v1") # Prefix chung cho toàn bộ API v1
 
-# ... (Giữ nguyên root endpoint) ...
+# Set up CORS
+if settings.BACKEND_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+app.include_router(api_router, prefix=settings.API_V1_STR)
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to Pallium Secure Vault API"}
