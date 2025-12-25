@@ -54,62 +54,123 @@ async function decryptBlob(ivB64, ciphertextB64) {
 // Hàm render lại lưới item (Dùng chung cho Load và Search)
 function renderGrid(itemsToRender) {
     const grid = document.getElementById('vault-grid');
-    const isRawMode = document.getElementById('toggle-raw').checked; // Check xem có đang bật chế độ Show Raw không
+    const isRawMode = document.getElementById('toggle-raw').checked;
 
     grid.innerHTML = '';
 
     if (itemsToRender.length === 0) {
-        grid.innerHTML = '<p class="text-gray-500 col-span-3 text-center py-10">Không tìm thấy dữ liệu.</p>';
+        grid.innerHTML = `
+            <div class="col-span-1 md:col-span-3 flex flex-col items-center justify-center py-20 text-gray-600 opacity-50">
+                <div class="text-6xl mb-4">🛡️</div>
+                <p class="text-xl font-bold">Your Vault is Locked & Empty</p>
+                <p class="text-sm">Add your first secure item to start.</p>
+            </div>
+        `;
         return;
     }
 
     itemsToRender.forEach(item => {
         const card = document.createElement('div');
-        card.className = "bg-gray-800 p-4 rounded border border-gray-700 hover:border-blue-500 transition shadow-lg relative group overflow-hidden";
+        card.className = "bg-gray-800 p-4 rounded-xl border border-gray-700 hover:border-blue-500 transition shadow-lg relative group";
 
-        // Logic hiển thị: Nếu Raw Mode -> Hiện chuỗi mã hóa. Nếu thường -> Hiện decrypted.
-        let displayUser, displayPass, labelClass;
+        let displayUser, displayPassHtml, labelClass;
 
         if (isRawMode) {
-            // CHẾ ĐỘ RAW (Show hàng mã hóa)
-            displayUser = `<span class="text-yellow-600 break-all text-[10px]">${item.encrypted_data.substring(0, 50)}...</span>`;
-            displayPass = `<span class="text-yellow-600 break-all text-[10px]">${item.iv}...</span>`;
+            // --- CHẾ ĐỘ RAW (Show hàng mã hóa) ---
+            // Ở chế độ này, show luôn chuỗi mã hóa, không cần ẩn hiện
+            displayUser = `<span class="text-yellow-600 break-all text-[10px] font-mono">${item.encrypted_data.substring(0, 50)}...</span>`;
+            displayPassHtml = `<span class="text-yellow-600 break-all text-[10px] font-mono">${item.iv}...</span>`;
             labelClass = "text-yellow-500 font-mono";
         } else {
-            // CHẾ ĐỘ THƯỜNG (Show dữ liệu thật)
+            // --- CHẾ ĐỘ THƯỜNG (Show dữ liệu thật) ---
             displayUser = `<span class="text-gray-200 text-sm font-mono truncate select-all">${item.decrypted.username}</span>`;
-            displayPass = `<span class="text-gray-400 text-sm font-mono tracking-widest truncate">••••••••••••</span>`;
+
+            // MẶC ĐỊNH LÀ ẨN (Dùng ID để JS tìm và thay thế text sau)
+            // Lưu ý: Không đưa password thật vào attribute nào cả!
+            displayPassHtml = `
+                <div class="flex items-center justify-between bg-gray-900 rounded px-3 py-2 border border-gray-700 group-hover:border-gray-600 transition">
+                    <span id="pass-content-${item.id}" class="text-gray-400 text-lg leading-none font-mono tracking-widest select-none">••••••••</span>
+                    <div class="flex gap-2 pl-2 border-l border-gray-700 ml-2">
+                        <button onclick="window.togglePass(${item.id}, this)" class="text-gray-500 hover:text-blue-400 transition" title="Show/Hide">
+                            👁️
+                        </button>
+                        <button onclick="window.copyToClip('${item.decrypted.password}', this)" class="text-gray-500 hover:text-green-400 transition" title="Copy Password">
+                            📋
+                        </button>
+                    </div>
+                </div>
+            `;
             labelClass = "text-blue-400 font-bold";
         }
 
         card.innerHTML = `
-            <div class="flex justify-between items-start mb-3">
-                <h3 class="${labelClass} text-lg truncate w-2/3" title="${item.label}">
-                    ${isRawMode ? '🔒 ' + item.label : item.label}
-                </h3>
-                <div class="flex gap-2">
-                    ${!isRawMode ? `
-                    <button onclick="window.copyToClip('${item.decrypted.password}', this)" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition">Copy</button>
-                    <button onclick="window.deleteItem(${item.id})" class="text-xs bg-red-900/30 hover:bg-red-900 text-red-400 px-2 py-1 rounded transition">Del</button>
-                    ` : '<span class="text-[10px] text-gray-500">AES-256</span>'}
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="text-2xl">${getIcon(item.label)}</span>
+                    <h3 class="${labelClass} text-lg truncate" title="${item.label}">
+                        ${isRawMode ? '🔒 ' + item.label : item.label}
+                    </h3>
                 </div>
+                ${!isRawMode ? `<button onclick="window.deleteItem(${item.id})" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-2 py-1 rounded transition">🗑️</button>` : ''}
             </div>
-            <div class="space-y-2">
-                <div>
-                    <p class="text-[10px] uppercase text-gray-500 font-bold">Username / Payload</p>
+            
+            <div class="space-y-3">
+                <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
+                    <p class="text-[10px] uppercase text-gray-500 font-bold mb-1">Username / ID</p>
                     ${displayUser}
                 </div>
-                 <div>
-                    <p class="text-[10px] uppercase text-gray-500 font-bold">Password / IV</p>
-                    <div class="flex justify-between items-center bg-gray-900 rounded px-2 py-1 min-h-[28px]">
-                        ${displayPass}
-                    </div>
+
+                <div>
+                    <p class="text-[10px] uppercase text-gray-500 font-bold mb-1">Password</p>
+                    ${displayPassHtml}
                 </div>
             </div>
         `;
         grid.appendChild(card);
     });
 }
+
+function getIcon(label) {
+    const l = label.toLowerCase();
+    if (l.includes('facebook')) return '📘';
+    if (l.includes('google') || l.includes('gmail')) return '🔴';
+    if (l.includes('bank') || l.includes('vietcombank')) return '🏦';
+    if (l.includes('github')) return '🐱';
+    if (l.includes('game') || l.includes('steam')) return '🎮';
+    return '🔑';
+}
+
+window.togglePass = (id, btn) => {
+    const span = document.getElementById(`pass-content-${id}`);
+    const item = state.items.find(i => i.id === id);
+
+    if (!item || !span) return;
+
+    // Kiểm tra trạng thái hiện tại dựa vào nội dung text
+    if (span.textContent.includes("•••")) {
+        // Đang ẩn -> Hiện (Lấy từ RAM ra nhét vào DOM)
+        span.textContent = item.decrypted.password;
+        span.classList.remove("tracking-widest", "text-lg");
+        span.classList.add("text-sm", "text-white");
+        btn.textContent = "🙈"; // Đổi icon thành che
+    } else {
+        // Đang hiện -> Ẩn (Xóa khỏi DOM)
+        span.textContent = "••••••••";
+        span.classList.add("tracking-widest", "text-lg");
+        span.classList.remove("text-sm", "text-white");
+        btn.textContent = "👁️"; // Đổi icon thành xem
+    }
+};
+
+window.copyToClip = (text, btn) => {
+    navigator.clipboard.writeText(text);
+    // Hiệu ứng copy nhỏ gọn hơn
+    const originalIcon = btn.textContent;
+    btn.textContent = "✅";
+    setTimeout(() => {
+        btn.textContent = originalIcon;
+    }, 1000);
+};
 
 // Tải dữ liệu từ API
 async function loadVaultItems() {
