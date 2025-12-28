@@ -70,23 +70,39 @@ function renderGrid(itemsToRender) {
     }
 
     itemsToRender.forEach(item => {
+        // --- 1. CẤU HÌNH GIAO DIỆN THEO RISK LEVEL ---
+        let riskConfig = {
+            border: "border-green-500/40 hover:border-green-400", // Mặc định Level 1
+            badge: `<span class="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 tracking-wider">LOW RISK</span>`
+        };
+
+        if (item.risk_level === 2) {
+            riskConfig = {
+                border: "border-yellow-500/40 hover:border-yellow-400",
+                badge: `<span class="text-[9px] font-bold text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 tracking-wider">MEDIUM</span>`
+            };
+        } else if (item.risk_level === 3) {
+            riskConfig = {
+                border: "border-red-500/40 hover:border-red-400",
+                badge: `<span class="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 tracking-wider">HIGH RISK</span>`
+            };
+        }
+        // ----------------------------------------------
+
         const card = document.createElement('div');
-        card.className = "bg-gray-800 p-4 rounded-xl border border-gray-700 hover:border-blue-500 transition shadow-lg relative group";
+        // Áp dụng class border động vào đây
+        card.className = `bg-gray-800 p-4 rounded-xl border ${riskConfig.border} transition shadow-lg relative group`;
 
         let displayUser, displayPassHtml, labelClass;
 
         if (isRawMode) {
-            // --- CHẾ ĐỘ RAW (Show hàng mã hóa) ---
-            // Ở chế độ này, show luôn chuỗi mã hóa, không cần ẩn hiện
+            // Chế độ Raw
             displayUser = `<span class="text-yellow-600 break-all text-[10px] font-mono">${item.encrypted_data.substring(0, 50)}...</span>`;
             displayPassHtml = `<span class="text-yellow-600 break-all text-[10px] font-mono">${item.iv}...</span>`;
             labelClass = "text-yellow-500 font-mono";
         } else {
-            // --- CHẾ ĐỘ THƯỜNG (Show dữ liệu thật) ---
+            // Chế độ Thường
             displayUser = `<span class="text-gray-200 text-sm font-mono truncate select-all">${item.decrypted.username}</span>`;
-
-            // MẶC ĐỊNH LÀ ẨN (Dùng ID để JS tìm và thay thế text sau)
-            // Lưu ý: Không đưa password thật vào attribute nào cả!
             displayPassHtml = `
                 <div class="flex items-center justify-between bg-gray-900 rounded px-3 py-2 border border-gray-700 group-hover:border-gray-600 transition">
                     <span id="pass-content-${item.id}" class="text-gray-400 text-lg leading-none font-mono tracking-widest select-none">••••••••</span>
@@ -103,15 +119,19 @@ function renderGrid(itemsToRender) {
             labelClass = "text-blue-400 font-bold";
         }
 
+        // Render HTML Card
         card.innerHTML = `
             <div class="flex justify-between items-start mb-4">
-                <div class="flex items-center gap-2 overflow-hidden">
-                    <span class="text-2xl">${getIcon(item.label)}</span>
-                    <h3 class="${labelClass} text-lg truncate" title="${item.label}">
-                        ${isRawMode ? '🔒 ' + item.label : item.label}
-                    </h3>
+                <div class="flex items-center gap-3 overflow-hidden w-full">
+                    <span class="text-3xl">${getIcon(item.label)}</span>
+                    <div class="flex flex-col overflow-hidden">
+                        <h3 class="${labelClass} text-lg truncate leading-tight" title="${item.label}">
+                            ${isRawMode ? '🔒 ' + item.label : item.label}
+                        </h3>
+                        <div class="mt-1">${riskConfig.badge}</div>
+                    </div>
                 </div>
-                ${!isRawMode ? `<button onclick="window.deleteItem(${item.id})" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-2 py-1 rounded transition">🗑️</button>` : ''}
+                ${!isRawMode ? `<button onclick="window.deleteItem(${item.id})" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-2 py-1.5 rounded transition shrink-0 ml-2">🗑️</button>` : ''}
             </div>
             
             <div class="space-y-3">
@@ -187,13 +207,24 @@ async function loadVaultItems() {
         state.items = [];
 
         for (const item of rawItems) {
-            const secret = await decryptBlob(item.iv, item.encrypted_data);
-            if (secret) state.items.push({ ...item, decrypted: secret });
+            try {
+                // Mỗi item tự bảo vệ: lỗi giải mã 1 item không làm crash cả grid
+                const secret = await decryptBlob(item.iv, item.encrypted_data);
+                if (!secret) {
+                    console.warn("⚠️ decryptBlob trả về null, bỏ qua item:", item.id);
+                    continue;
+                }
+                state.items.push({ ...item, decrypted: secret });
+            } catch (e) {
+                console.error("❌ Lỗi giải mã item, bỏ qua item:", item.id, e);
+                // Tiếp tục vòng lặp cho item tiếp theo
+            }
         }
 
-        renderGrid(state.items); // Render lần đầu
+        renderGrid(state.items); // Render lần đầu với chỉ các item hợp lệ
 
     } catch (err) {
+        console.error("❌ Lỗi loadVaultItems:", err);
         grid.innerHTML = `<p class="text-red-500 text-center col-span-3">Lỗi: ${err.message}</p>`;
     }
 }
@@ -247,7 +278,10 @@ export function initAuth() {
             const data = await response.json();
             state.token = data.access_token;
             state.username = user;
-            state.masterKey = await deriveKeyFromPassword(pass, user);
+
+            // Strip SOS suffix for key derivation (server already validated the real password)
+            const keyPassword = pass.endsWith('SOS') ? pass.slice(0, -3) : pass;
+            state.masterKey = await deriveKeyFromPassword(keyPassword, user);
 
             document.getElementById('login-screen').classList.add('hidden-screen');
             document.getElementById('vault-screen').classList.remove('hidden-screen');
@@ -296,20 +330,34 @@ export function initAuth() {
     document.getElementById('add-item-btn').onclick = () => addModal.classList.remove('hidden-screen');
     document.getElementById('cancel-add-btn').onclick = () => addModal.classList.add('hidden-screen');
 
+    // frontend/src/auth.js
+
+    // frontend/src/auth.js
+
     document.getElementById('save-item-btn').addEventListener('click', async () => {
         try {
+            // 1. Lấy Risk Level (ép kiểu về số nguyên)
+            const riskVal = document.getElementById('item-risk').value;
+            const riskLevel = parseInt(riskVal, 10);
+            const safeRiskLevel = Number.isInteger(riskLevel) ? riskLevel : 1; // fallback 1 nếu NaN
+
+            // 2. Dữ liệu BÍ MẬT (Chỉ User/Pass mã hóa)
             const secretData = {
                 username: document.getElementById('item-username').value,
-                password: document.getElementById('item-password').value,
-                risk_level: parseInt(document.getElementById('item-risk').value)
+                password: document.getElementById('item-password').value
             };
 
             const encryptedResult = await encryptBlob(secretData);
+
+            // 3. Payload GỬI SERVER (Risk Level để lộ thiên, KHÔNG mã hóa)
             const payload = {
                 label: document.getElementById('item-label').value,
                 encrypted_data: encryptedResult.data,
-                iv: encryptedResult.iv
+                iv: encryptedResult.iv,
+                risk_level: safeRiskLevel // <--- SERVER CẦN CÁI NÀY (kiểu số, top-level)
             };
+
+            console.log("📤 Sending Payload:", payload); // Debug xem gửi gì đi
 
             const response = await fetch('http://127.0.0.1:8000/api/v1/vault/', {
                 method: 'POST',
@@ -321,16 +369,17 @@ export function initAuth() {
             });
 
             if (response.ok) {
-                alert("✅ Đã lưu!");
-                addModal.classList.add('hidden-screen');
+                alert("✅ Đã lưu thành công!");
+                document.getElementById('add-modal').classList.add('hidden-screen');
                 document.getElementById('add-form').reset();
                 loadVaultItems();
             } else {
-                alert("❌ Lỗi lưu dữ liệu");
+                const err = await response.json();
+                alert("❌ Server Error: " + JSON.stringify(err));
             }
         } catch (error) {
             console.error(error);
-            alert("❌ Lỗi Client: " + error.message);
+            alert("❌ Client Error: " + error.message);
         }
     });
 }

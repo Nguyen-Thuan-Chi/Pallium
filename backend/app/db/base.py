@@ -1,30 +1,46 @@
 # backend/app/db/base.py
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+"""
+SQLAlchemy declarative base and re-exports for backward compatibility.
+
+This module defines the Base class for all ORM models and re-exports
+database session components from db/session.py for backward compatibility.
+"""
 from sqlalchemy.orm import DeclarativeBase
 
-# Đường dẫn DB. Lưu ý: 3 dấu gạch chéo /// là đường dẫn tương đối
-DATABASE_URL = "sqlite+aiosqlite:///./pallium.db"
-
-# Tạo Engine Async
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=True, # Bật log SQL để debug (tắt khi deploy production)
-    future=True
-)
-
-# Tạo Session Factory
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False
-)
-
-# Class cha cho các Model
+# ─────────────────────────────────────────────────────────────────────────────
+# Declarative Base for ORM Models
+# All models inherit from this class
+# ─────────────────────────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
+    """
+    Base class for all SQLAlchemy ORM models.
+
+    Usage:
+        class User(Base):
+            __tablename__ = "users"
+            id = Column(Integer, primary_key=True)
+            ...
+    """
     pass
 
-# Hàm Dependency để lấy DB session (Dùng trong API)
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backward Compatibility Re-exports
+#
+# Existing code imports engine, get_db, AsyncSessionLocal from db.base
+# These are now defined in db.session but re-exported here to avoid
+# breaking existing imports throughout the codebase.
+# ─────────────────────────────────────────────────────────────────────────────
+from backend.app.db.session import (
+    engine,
+    AsyncSessionLocal,
+    get_db,
+)
+
+# Explicit __all__ for clean imports
+__all__ = [
+    "Base",
+    "engine",
+    "AsyncSessionLocal",
+    "get_db",
+]
