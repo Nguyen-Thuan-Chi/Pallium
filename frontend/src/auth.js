@@ -1,6 +1,7 @@
 // ==========================================
 // PALLIUM AUTH & VAULT LOGIC (FINAL DEMO VERSION)
 // ==========================================
+import { API_URL } from './config.js';
 
 const state = {
     token: null,
@@ -198,7 +199,7 @@ async function loadVaultItems() {
     grid.innerHTML = '<div class="col-span-3 text-center text-blue-400 animate-pulse mt-10">⏳ Đang giải mã dữ liệu an toàn...</div>';
 
     try {
-        const res = await fetch('http://127.0.0.1:8000/api/v1/vault/', {
+        const res = await fetch(`${API_URL}/api/v1/vault/`, {
             headers: { 'Authorization': `Bearer ${state.token}` }
         });
         if (!res.ok) throw new Error("Lỗi tải danh sách");
@@ -244,7 +245,7 @@ window.copyToClip = (text, btn) => {
 window.deleteItem = async (id) => {
     if(!confirm("Xóa mục này vĩnh viễn?")) return;
     try {
-        const res = await fetch(`http://127.0.0.1:8000/api/v1/vault/${id}`, {
+        const res = await fetch(`${API_URL}/api/v1/vault/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${state.token}` }
         });
@@ -267,7 +268,7 @@ export function initAuth() {
             formData.append('username', user);
             formData.append('password', pass);
 
-            const response = await fetch('http://127.0.0.1:8000/api/v1/auth/login', {
+            const response = await fetch(`${API_URL}/api/v1/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
@@ -359,7 +360,7 @@ export function initAuth() {
 
             console.log("📤 Sending Payload:", payload); // Debug xem gửi gì đi
 
-            const response = await fetch('http://127.0.0.1:8000/api/v1/vault/', {
+            const response = await fetch(`${API_URL}/api/v1/vault/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
