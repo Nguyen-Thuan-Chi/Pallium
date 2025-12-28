@@ -37,7 +37,7 @@ if settings.BACKEND_CORS_ORIGINS:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cho phép tất cả các nguồn (Localhost, Render, Vercel...) https://pallium-frontend.vercel.app
+    allow_origins=["https://pallium-vault.vercel.app/"],  # Cho phép tất cả các nguồn (Localhost, Render, Vercel...) https://pallium-frontend.vercel.app
     allow_credentials=True,
     allow_methods=["*"],  # Cho phép tất cả các method (GET, POST, PUT, DELETE...)
     allow_headers=["*"],  # Cho phép tất cả các header

@@ -8,6 +8,7 @@ Security considerations:
 - Database URLs normalized for async drivers automatically
 - Debug/echo modes disabled in production by default
 """
+
 from functools import lru_cache
 from typing import List
 
@@ -42,7 +43,7 @@ class Settings(BaseSettings):
     # Security: JWT Configuration
     # SECRET_KEY MUST be set in production via environment variable
     # ─────────────────────────────────────────────────────────────
-    SECRET_KEY: str = "INSECURE_DEV_KEY_CHANGE_IN_PRODUCTION"
+    SECRET_KEY: str  # Required: no default, must be provided via environment
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
     # Render.com provides DATABASE_URL with postgres:// scheme.
     # We normalize to postgresql+asyncpg:// for SQLAlchemy async.
     # ─────────────────────────────────────────────────────────────
-    DATABASE_URL: str = "sqlite+aiosqlite:///./pallium.db"
+    DATABASE_URL: str  # Required: no default, must be provided via environment
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -70,9 +71,12 @@ class Settings(BaseSettings):
         is always in the correct format for async drivers.
         """
         if v is None:
-            return "sqlite+aiosqlite:///./pallium.db"
+            raise ValueError("DATABASE_URL must be provided via environment variable")
 
         url = v.strip()
+
+        if not url:
+            raise ValueError("DATABASE_URL must be provided via environment variable")
 
         # Handle Render.com style postgres:// URLs
         if url.startswith("postgres://"):
@@ -82,9 +86,6 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://") and "+asyncpg" not in url:
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-        # Handle SQLite URLs (ensure aiosqlite driver)
-        if url.startswith("sqlite:///") and "+aiosqlite" not in url:
-            return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
 
         return url
 
@@ -99,7 +100,12 @@ class Settings(BaseSettings):
     # Parsed from comma-separated CORS_ORIGINS env var
     # Empty string → empty list (NOT "*" for security)
     # ─────────────────────────────────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:5500,http://127.0.0.1:5500,http://localhost:8000,http://127.0.0.1:8000"
+    CORS_ORIGINS: str = (
+        "http://localhost:5500,"
+        "http://127.0.0.1:5500,"
+        "http://localhost:8000,"
+        "http://127.0.0.1:8000"
+    )
 
     @property
     def BACKEND_CORS_ORIGINS(self) -> List[str]:
