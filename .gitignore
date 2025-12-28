@@ -54,3 +54,4 @@ pnpm-debug.log*
 .cache/
 .parcel-cache/
 
+pallium-extension/

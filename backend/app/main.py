@@ -30,12 +30,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=[
-        "chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna",
-        "https://pallium-vault.vercel.app",
-        "https://www.pallium.click",
-        "https://pallium.click",
-    ],
+    allow_origin_regex=r"(chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna|https://pallium-vault\.vercel\.app|https://www\.pallium\.click|https://pallium\.click)",
+
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
