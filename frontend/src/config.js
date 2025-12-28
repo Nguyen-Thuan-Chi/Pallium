@@ -1,1 +1,1 @@
-export const API_URL = "https://pallium-api.onrender.com/api/v1";
+export const API_URL = "https://pallium-api.onrender.com";
