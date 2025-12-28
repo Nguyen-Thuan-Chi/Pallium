@@ -35,6 +35,13 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép tất cả các nguồn (Localhost, Render, Vercel...) https://pallium-frontend.vercel.app
+    allow_credentials=True,
+    allow_methods=["*"],  # Cho phép tất cả các method (GET, POST, PUT, DELETE...)
+    allow_headers=["*"],  # Cho phép tất cả các header
+)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/")

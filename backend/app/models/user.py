@@ -1,6 +1,7 @@
 # backend/app/models/user.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.sql import func
+from typing import Optional
 from backend.app.db.base import Base
 
 
@@ -22,3 +23,7 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Non-persistent attribute for runtime injection (set by deps.py)
+    # Used to track login mode: "normal" or "duress"
+    #login_mode: Optional[str] = None
