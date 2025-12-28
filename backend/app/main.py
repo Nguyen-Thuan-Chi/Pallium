@@ -43,6 +43,7 @@ app.add_middleware(
                    "https://www.pallium.click/",
                    "https://pallium.click",  # Đề phòng user không gõ www
                    "https://pallium.click/"
+                   "chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna"
                    ],  # Cho phép tất cả các nguồn (Localhost, Render, Vercel...) https://pallium-frontend.vercel.app
     allow_credentials=True,
     allow_methods=["*"],  # Cho phép tất cả các method (GET, POST, PUT, DELETE...)
