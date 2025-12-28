@@ -26,28 +26,19 @@ app = FastAPI(
 )
 
 # Set up CORS
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://pallium-vault.vercel.app/",
-                   "https://pallium-vault.vercel.app",
-                   "https://www.pallium.click",
-                   "https://www.pallium.click/",
-                   "https://pallium.click",  # Đề phòng user không gõ www
-                   "https://pallium.click/"
-                   "chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna"
-                   ],  # Cho phép tất cả các nguồn (Localhost, Render, Vercel...) https://pallium-frontend.vercel.app
+    allow_origin_regex=[
+        "chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna",
+        "https://pallium-vault.vercel.app",
+        "https://www.pallium.click",
+        "https://pallium.click",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Cho phép tất cả các method (GET, POST, PUT, DELETE...)
-    allow_headers=["*"],  # Cho phép tất cả các header
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
