@@ -408,7 +408,7 @@ export function initAuth() {
         const errDiv = document.getElementById('register-error');
 
         // Validate password match
-        if (pass !== confirm) {
+        if (pass !== confirmPassword) {
             errDiv.textContent = "Passwords do not match!";
             errDiv.classList.remove('hidden');
             return;
