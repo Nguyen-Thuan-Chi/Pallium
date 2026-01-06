@@ -436,7 +436,9 @@ export function initAuth() {
         };
 
         // Display seed phrase on screen
-        document.getElementById('seed-phrase-display').textContent = seedPhrase;
+        document.getElementById('seed-phrase-display').textContent =
+          Array.isArray(seedPhrase) ? seedPhrase.join(' ') : seedPhrase;
+
 
         // Hide register screen, show seed backup screen
         registerScreen.classList.add('hidden-screen');
@@ -504,7 +506,7 @@ export function initAuth() {
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.detail || "Registration failed");
+                throw new Error(typeof data.detail === 'string' ? data.detail : "Registration failed");
             }
 
             // STEP 5: Auto-login to set up seed recovery
@@ -635,7 +637,7 @@ export function initAuth() {
                     return;
                 }
 
-                throw new Error(errorData.detail || "Incorrect username or password");
+                throw new Error(typeof errorData.detail === 'string' ? errorData.detail : "Incorrect username or password");
             }
 
             const data = await response.json();
@@ -821,7 +823,7 @@ export function initAuth() {
                 loadVaultItems();
             } else {
                 const err = await res.json();
-                throw new Error("Save failed: " + JSON.stringify(err));
+                throw new Error("Save failed: " + (typeof err.detail === 'string' ? err.detail : JSON.stringify(err)));
             }
         } catch (e) {
             alert(e.message);
@@ -965,7 +967,7 @@ export function initAuth() {
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Verification failed');
+                    throw new Error(typeof err.detail === 'string' ? err.detail : 'Verification failed');
                 }
 
                 // Success
@@ -1008,7 +1010,7 @@ export function initAuth() {
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Failed to disable 2FA');
+                    throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to disable 2FA');
                 }
 
                 // Success
@@ -1122,7 +1124,7 @@ export function initAuth() {
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Failed to set duress password');
+                    throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to set duress password');
                 }
 
                 // Success - clear inputs and show message
