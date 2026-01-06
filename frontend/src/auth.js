@@ -362,7 +362,11 @@ export function initAuth() {
 
     const loginScreen = document.getElementById('login-screen');
     const registerScreen = document.getElementById('register-screen');
+    const seedBackupScreen = document.getElementById('seed-backup-screen');
     const vaultScreen = document.getElementById('vault-screen');
+
+    // Pending registration data (held during seed backup step)
+    let pendingRegistration = null;
 
     // Navigation
     document.getElementById('go-to-register').onclick = () => {
@@ -422,56 +426,55 @@ export function initAuth() {
         }
 
         // Generate seed phrase for recovery (client-side only)
-        let seedPhrase = generateSeedPhrase(12);
+        const seedPhrase = generateSeedPhrase(12);
 
-        // Create and force download the seed phrase file
-        const fileContent = `========================================
-PALLIUM SEED PHRASE - KEEP THIS SAFE!
-========================================
+        // Store pending registration data
+        pendingRegistration = {
+            username: user,
+            password: pass,
+            seedPhrase: seedPhrase
+        };
 
-⚠️ WARNING: This is your ONLY backup for account recovery.
-Anyone with this phrase can reset your password.
-Store it securely offline. Never share it with anyone.
+        // Display seed phrase on screen
+        document.getElementById('seed-phrase-display').textContent = seedPhrase;
 
-YOUR SEED PHRASE (12 words):
-${seedPhrase}
+        // Hide register screen, show seed backup screen
+        registerScreen.classList.add('hidden-screen');
+        seedBackupScreen.classList.remove('hidden-screen');
+        errDiv.classList.add('hidden');
+    });
 
-========================================
-This seed phrase is shown ONLY ONCE.
-Pallium does NOT store your seed phrase.
-If you lose it, you CANNOT recover your account.
-========================================
-`;
+    // --- SEED BACKUP: Download button handler ---
+    document.getElementById('download-seed-btn').addEventListener('click', () => {
+        if (!pendingRegistration || !pendingRegistration.seedPhrase) {
+            return;
+        }
+
+        // Create file with EXACTLY 2 lines as specified
+        const fileContent = `WARNING: Anyone with this seed can reset your account. Keep it safe.\n${pendingRegistration.seedPhrase}`;
 
         const blob = new Blob([fileContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
-        downloadLink.download = 'pallium-seed.txt';
+        downloadLink.download = 'seed.txt';
 
-        // Force download - this triggers the browser's download mechanism
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
         URL.revokeObjectURL(url);
+    });
 
-        // Confirm download before proceeding
-        const confirmDownload = window.confirm(
-            "⚠️ IMPORTANT: Your seed phrase file has been downloaded.\n\n" +
-            "Please verify you have saved 'pallium-seed.txt' before continuing.\n\n" +
-            "This is your ONLY chance to save your recovery phrase.\n\n" +
-            "Click OK to continue with registration, or Cancel to abort."
-        );
-
-        if (!confirmDownload) {
-            // User cancelled - clear seed and abort
-            seedPhrase = null;
-            errDiv.textContent = "Registration cancelled. Please try again and save your seed phrase.";
-            errDiv.classList.remove('hidden');
-            errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
-            errDiv.classList.add('bg-red-900/30', 'border-red-900', 'text-red-400');
+    // --- SEED BACKUP: Confirm button handler ---
+    document.getElementById('confirm-seed-backup-btn').addEventListener('click', async () => {
+        if (!pendingRegistration) {
+            seedBackupScreen.classList.add('hidden-screen');
+            loginScreen.classList.remove('hidden-screen');
             return;
         }
+
+        const errDiv = document.getElementById('seed-backup-error');
+        const { username: user, password: pass, seedPhrase } = pendingRegistration;
 
         try {
             errDiv.textContent = "Creating secure vault...";
@@ -530,19 +533,21 @@ If you lose it, you CANNOT recover your account.
                 state.masterKey = null;
             }
 
-            // Clear seed phrase from memory immediately
-            seedPhrase = null;
+            // Clear pending registration and seed phrase from memory
+            pendingRegistration = null;
+            document.getElementById('seed-phrase-display').textContent = '';
 
             alert("✅ Registration Successful! Your seed phrase has been saved.\nPlease Log In.");
             document.getElementById('register-form').reset();
-            registerScreen.classList.add('hidden-screen');
+            seedBackupScreen.classList.add('hidden-screen');
             loginScreen.classList.remove('hidden-screen');
             document.getElementById('username').value = user;
             errDiv.classList.add('hidden');
 
         } catch (err) {
-            // Clear seed phrase on error
-            seedPhrase = null;
+            // Clear pending registration on error
+            pendingRegistration = null;
+            document.getElementById('seed-phrase-display').textContent = '';
             state.token = null;
             state.masterKey = null;
 
@@ -551,6 +556,16 @@ If you lose it, you CANNOT recover your account.
             errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
             errDiv.classList.add('bg-red-900/30', 'border-red-900', 'text-red-400');
         }
+    });
+
+    // --- SEED BACKUP: Cancel button handler ---
+    document.getElementById('cancel-seed-backup-btn').addEventListener('click', () => {
+        // Clear pending registration and seed phrase from memory
+        pendingRegistration = null;
+        document.getElementById('seed-phrase-display').textContent = '';
+
+        seedBackupScreen.classList.add('hidden-screen');
+        registerScreen.classList.remove('hidden-screen');
     });
 
     // --- LOGIN LOGIC ---
@@ -1016,6 +1031,120 @@ If you lose it, you CANNOT recover your account.
         document.getElementById('twofa-disable-code').value = '';
         document.getElementById('twofa-verify-error').classList.add('hidden');
         document.getElementById('twofa-disable-error').classList.add('hidden');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DURESS PASSWORD SETUP
+    // ─────────────────────────────────────────────────────────────
+
+    const duressModal = document.getElementById('duress-modal');
+    const duressSettingsBtn = document.getElementById('settings-duress-btn');
+    const duressCloseBtn = document.getElementById('duress-close-btn');
+    const duressSetBtn = document.getElementById('duress-set-btn');
+
+    // Open duress modal
+    if (duressSettingsBtn) {
+        duressSettingsBtn.addEventListener('click', async () => {
+            await loadDuressStatus();
+            duressModal.classList.remove('hidden-screen');
+        });
+    }
+
+    // Close duress modal
+    if (duressCloseBtn) {
+        duressCloseBtn.addEventListener('click', () => {
+            duressModal.classList.add('hidden-screen');
+            resetDuressModal();
+        });
+    }
+
+    // Load duress password status
+    async function loadDuressStatus() {
+        try {
+            const res = await fetch(`${API_URL}/api/v1/auth/duress/status`, {
+                headers: { 'Authorization': `Bearer ${state.token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to load duress status');
+
+            const data = await res.json();
+            const statusDiv = document.getElementById('duress-status');
+            const statusText = document.getElementById('duress-status-text');
+
+            if (data.is_set) {
+                statusDiv.className = 'mb-4 p-3 rounded border border-green-700 bg-green-900/20';
+                statusText.textContent = '✅ Duress password is set';
+                statusText.className = 'text-sm text-green-400';
+            } else {
+                statusDiv.className = 'mb-4 p-3 rounded border border-yellow-700 bg-yellow-900/20';
+                statusText.textContent = '⚠️ Duress password is not set';
+                statusText.className = 'text-sm text-yellow-400';
+            }
+        } catch (err) {
+            console.error('Failed to load duress status:', err);
+        }
+    }
+
+    // Set duress password
+    if (duressSetBtn) {
+        duressSetBtn.addEventListener('click', async () => {
+            const password = document.getElementById('duress-password').value;
+            const confirmPassword = document.getElementById('duress-password-confirm').value;
+            const errorDiv = document.getElementById('duress-error');
+            const successDiv = document.getElementById('duress-success');
+
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'Passwords do not match';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Validate minimum length
+            if (password.length < 8) {
+                errorDiv.textContent = 'Password must be at least 8 characters';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/auth/duress/set`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${state.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ duress_password: password })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to set duress password');
+                }
+
+                // Success - clear inputs and show message
+                document.getElementById('duress-password').value = '';
+                document.getElementById('duress-password-confirm').value = '';
+                successDiv.textContent = 'Duress password set successfully';
+                successDiv.classList.remove('hidden');
+                await loadDuressStatus();
+
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Reset duress modal state
+    function resetDuressModal() {
+        document.getElementById('duress-password').value = '';
+        document.getElementById('duress-password-confirm').value = '';
+        document.getElementById('duress-error').classList.add('hidden');
+        document.getElementById('duress-success').classList.add('hidden');
     }
 
 }
