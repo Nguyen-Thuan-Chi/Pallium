@@ -1,7 +1,6 @@
 # backend/app/models/user.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.sql import func
-from typing import Optional
 from backend.app.db.base import Base
 
 
@@ -23,6 +22,19 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # ─────────────────────────────────────────────────────────────
+    # 2FA / TOTP Fields
+    # ─────────────────────────────────────────────────────────────
+    # Base32-encoded TOTP secret (encrypted or plain - 32 chars)
+    totp_secret = Column(String(64), nullable=True)
+    is_2fa_enabled = Column(Boolean, nullable=False, default=False)
+
+    # ─────────────────────────────────────────────────────────────
+    # Duress / SOS Password
+    # ─────────────────────────────────────────────────────────────
+    # Separate hash for duress password (Argon2)
+    hashed_duress_password = Column(String(255), nullable=True)
 
     # Non-persistent attribute for runtime injection (set by deps.py)
     # Used to track login mode: "normal" or "duress"
