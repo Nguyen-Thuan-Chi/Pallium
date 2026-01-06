@@ -34,6 +34,11 @@
                     <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Master Password</label>
                     <input type="password" id="password" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-blue-500 transition text-sm" placeholder="••••••••" required>
                 </div>
+                <!-- 2FA TOTP Input (hidden by default) -->
+                <div id="totp-container" class="hidden">
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">2FA Code</label>
+                    <input type="text" id="totp-code" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm text-center tracking-widest font-mono" placeholder="000000" maxlength="6" autocomplete="one-time-code">
+                </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded transition shadow-lg shadow-blue-900/20">
                     Unlock Vault
                 </button>
@@ -94,6 +99,9 @@
                 <p class="text-sm text-gray-400 mt-1">Logged in as <span id="user-display" class="text-blue-400 font-mono">...</span></p>
             </div>
             <div class="flex items-center gap-3">
+                <button id="settings-2fa-btn" class="text-purple-400 hover:text-purple-300 text-sm border border-purple-900/50 hover:border-purple-500 px-4 py-2 rounded bg-purple-900/10 transition flex items-center gap-2">
+                    <span>🔐</span> 2FA Settings
+                </button>
                 <button id="export-vault-btn" class="text-blue-400 hover:text-blue-300 text-sm border border-blue-900/50 hover:border-blue-500 px-4 py-2 rounded bg-blue-900/10 transition flex items-center gap-2">
                     <span>💾</span> Export Vault
                 </button>
@@ -169,6 +177,63 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 2FA Setup Modal -->
+    <div id="twofa-modal" class="hidden-screen fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-purple-600 relative">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-600"></div>
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span class="text-purple-400">🔐</span> Two-Factor Authentication
+            </h3>
+
+            <!-- 2FA Status Display -->
+            <div id="twofa-status" class="mb-4 p-3 rounded border">
+                <p id="twofa-status-text" class="text-sm"></p>
+            </div>
+
+            <!-- Setup Step 1: QR Code -->
+            <div id="twofa-setup-step1" class="hidden space-y-4">
+                <p class="text-gray-400 text-sm">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
+                <div class="flex justify-center bg-white p-4 rounded-lg">
+                    <img id="twofa-qr-code" src="" alt="2FA QR Code" class="w-48 h-48">
+                </div>
+                <div class="bg-gray-900/50 p-3 rounded border border-gray-700">
+                    <p class="text-xs text-gray-500 uppercase mb-1">Manual Entry Key</p>
+                    <code id="twofa-secret" class="text-purple-400 text-sm font-mono break-all select-all"></code>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Enter 6-digit code to verify</label>
+                    <input type="text" id="twofa-verify-code" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm text-center tracking-widest font-mono" placeholder="000000" maxlength="6">
+                </div>
+                <div id="twofa-verify-error" class="hidden bg-red-900/30 border border-red-900 text-red-400 text-sm p-2 rounded text-center"></div>
+                <button type="button" id="twofa-verify-btn" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-4 rounded transition">
+                    Verify & Enable 2FA
+                </button>
+            </div>
+
+            <!-- Disable 2FA -->
+            <div id="twofa-disable-section" class="hidden space-y-4">
+                <p class="text-gray-400 text-sm">Enter your current 2FA code to disable two-factor authentication.</p>
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Current 6-digit code</label>
+                    <input type="text" id="twofa-disable-code" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm text-center tracking-widest font-mono" placeholder="000000" maxlength="6">
+                </div>
+                <div id="twofa-disable-error" class="hidden bg-red-900/30 border border-red-900 text-red-400 text-sm p-2 rounded text-center"></div>
+                <button type="button" id="twofa-disable-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded transition">
+                    Disable 2FA
+                </button>
+            </div>
+
+            <!-- Enable Button (when 2FA is off) -->
+            <button type="button" id="twofa-enable-btn" class="hidden w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-4 rounded transition">
+                Enable 2FA
+            </button>
+
+            <div class="flex justify-end mt-6 pt-4 border-t border-gray-700">
+                <button type="button" id="twofa-close-btn" class="text-gray-400 hover:text-white px-4 py-2 text-sm transition">Close</button>
+            </div>
         </div>
     </div>
 

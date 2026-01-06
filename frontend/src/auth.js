@@ -404,7 +404,7 @@ export function initAuth() {
 
         const user = document.getElementById('reg-username').value.trim();
         const pass = document.getElementById('reg-password').value;
-        const confirm = document.getElementById('reg-confirm-password').value;
+        const confirmPassword = document.getElementById('reg-confirm-password').value;
         const errDiv = document.getElementById('register-error');
 
         // Validate password match
@@ -456,7 +456,7 @@ If you lose it, you CANNOT recover your account.
         URL.revokeObjectURL(url);
 
         // Confirm download before proceeding
-        const confirmDownload = confirm(
+        const confirmDownload = window.confirm(
             "⚠️ IMPORTANT: Your seed phrase file has been downloaded.\n\n" +
             "Please verify you have saved 'pallium-seed.txt' before continuing.\n\n" +
             "This is your ONLY chance to save your recovery phrase.\n\n" +
@@ -559,13 +559,15 @@ If you lose it, you CANNOT recover your account.
 
         const user = document.getElementById('username').value.trim();
         const pass = document.getElementById('password').value;
+        const totpInput = document.getElementById('totp-code');
+        const totpCode = totpInput ? totpInput.value.trim() : '';
         const errDiv = document.getElementById('login-error');
 
         try {
             errDiv.textContent = "Deriving keys...";
             errDiv.classList.remove('hidden');
 
-            // STEP 1: Fetch salt from server
+            // STEP 1: Fetch salt from server (also tells us if 2FA is enabled)
             const saltRes = await fetch(`${API_URL}/api/v1/auth/salt/${encodeURIComponent(user)}`);
             if (!saltRes.ok) {
                 throw new Error("User not found or connection error");
@@ -573,6 +575,16 @@ If you lose it, you CANNOT recover your account.
 
             const saltData = await saltRes.json();
             const userSalt = saltData.salt;
+            const is2faEnabled = saltData.is_2fa_enabled || false;
+
+            // If 2FA enabled but no code provided, show 2FA input
+            if (is2faEnabled && !totpCode) {
+                show2FAInput();
+                errDiv.textContent = "Enter your 2FA code from authenticator app";
+                errDiv.classList.remove('bg-red-900/30', 'border-red-900', 'text-red-400');
+                errDiv.classList.add('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
+                return;
+            }
 
             // STEP 2: Derive Master Key from password + fetched salt
             state.masterKey = await deriveKeyFromPassword(pass, userSalt);
@@ -580,12 +592,15 @@ If you lose it, you CANNOT recover your account.
             // STEP 3: Derive Auth Key (Hash of Master Key)
             const authKey = await deriveAuthKey(state.masterKey);
 
-            // STEP 4: Login with AuthKey
+            // STEP 4: Login with AuthKey (and optionally TOTP code)
             const formData = new URLSearchParams();
             formData.append('username', user);
             formData.append('password', authKey);  // AuthKey, NOT raw password
+            if (totpCode) {
+                formData.append('totp_code', totpCode);
+            }
 
-            const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+            const response = await fetch(`${API_URL}/api/v1/auth/login?totp_code=${encodeURIComponent(totpCode)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
@@ -594,14 +609,29 @@ If you lose it, you CANNOT recover your account.
             if (!response.ok) {
                 // Clear master key on failed login
                 state.masterKey = null;
-                throw new Error("Incorrect username or password");
+                const errorData = await response.json();
+
+                // Check if 2FA is required
+                if (response.headers.get('X-Requires-2FA') === 'true' || errorData.detail === '2FA code required') {
+                    show2FAInput();
+                    errDiv.textContent = "Enter your 2FA code from authenticator app";
+                    errDiv.classList.remove('bg-red-900/30', 'border-red-900', 'text-red-400');
+                    errDiv.classList.add('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
+                    return;
+                }
+
+                throw new Error(errorData.detail || "Incorrect username or password");
             }
 
             const data = await response.json();
             state.token = data.access_token;
             state.username = user;
 
+            // Store token for API calls
+            sessionStorage.setItem("access_token", data.access_token);
+
             // Switch to vault screen
+            hide2FAInput();
             loginScreen.classList.add('hidden-screen');
             vaultScreen.classList.remove('hidden-screen');
             document.getElementById('user-display').textContent = user;
@@ -613,9 +643,28 @@ If you lose it, you CANNOT recover your account.
         } catch (err) {
             errDiv.textContent = err.message;
             errDiv.classList.remove('hidden');
+            errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
+            errDiv.classList.add('bg-red-900/30', 'border-red-900', 'text-red-400');
             console.error("Login error:", err);
         }
     });
+
+    // Helper functions for 2FA input visibility
+    function show2FAInput() {
+        const totpContainer = document.getElementById('totp-container');
+        if (totpContainer) {
+            totpContainer.classList.remove('hidden');
+            document.getElementById('totp-code').focus();
+        }
+    }
+
+    function hide2FAInput() {
+        const totpContainer = document.getElementById('totp-container');
+        if (totpContainer) {
+            totpContainer.classList.add('hidden');
+            document.getElementById('totp-code').value = '';
+        }
+    }
 
     // --- LOGOUT LOGIC ---
     document.getElementById('logout-btn').addEventListener('click', () => {
@@ -624,6 +673,12 @@ If you lose it, you CANNOT recover your account.
         state.masterKey = null;
         state.username = null;
         state.items = [];
+
+        // Clear session storage
+        sessionStorage.removeItem("access_token");
+
+        // Reset 2FA input
+        hide2FAInput();
 
         // Switch to login screen
         vaultScreen.classList.add('hidden-screen');
@@ -778,6 +833,189 @@ If you lose it, you CANNOT recover your account.
             document.getElementById('recovery-screen').classList.add('hidden-screen');
             document.getElementById('login-screen').classList.remove('hidden-screen');
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2FA SETUP & MANAGEMENT
+    // ─────────────────────────────────────────────────────────────
+
+    const twofaModal = document.getElementById('twofa-modal');
+    const twofaSettingsBtn = document.getElementById('settings-2fa-btn');
+    const twofaCloseBtn = document.getElementById('twofa-close-btn');
+    const twofaEnableBtn = document.getElementById('twofa-enable-btn');
+    const twofaVerifyBtn = document.getElementById('twofa-verify-btn');
+    const twofaDisableBtn = document.getElementById('twofa-disable-btn');
+
+    // Open 2FA modal
+    if (twofaSettingsBtn) {
+        twofaSettingsBtn.addEventListener('click', async () => {
+            await load2FAStatus();
+            twofaModal.classList.remove('hidden-screen');
+        });
+    }
+
+    // Close 2FA modal
+    if (twofaCloseBtn) {
+        twofaCloseBtn.addEventListener('click', () => {
+            twofaModal.classList.add('hidden-screen');
+            reset2FAModal();
+        });
+    }
+
+    // Load current 2FA status
+    async function load2FAStatus() {
+        try {
+            const res = await fetch(`${API_URL}/api/v1/auth/2fa/status`, {
+                headers: { 'Authorization': `Bearer ${state.token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to load 2FA status');
+
+            const data = await res.json();
+            const statusDiv = document.getElementById('twofa-status');
+            const statusText = document.getElementById('twofa-status-text');
+
+            if (data.is_enabled) {
+                statusDiv.className = 'mb-4 p-3 rounded border border-green-700 bg-green-900/20';
+                statusText.textContent = '✅ 2FA is currently ENABLED';
+                statusText.className = 'text-sm text-green-400';
+
+                document.getElementById('twofa-enable-btn').classList.add('hidden');
+                document.getElementById('twofa-setup-step1').classList.add('hidden');
+                document.getElementById('twofa-disable-section').classList.remove('hidden');
+            } else {
+                statusDiv.className = 'mb-4 p-3 rounded border border-yellow-700 bg-yellow-900/20';
+                statusText.textContent = '⚠️ 2FA is currently DISABLED';
+                statusText.className = 'text-sm text-yellow-400';
+
+                document.getElementById('twofa-enable-btn').classList.remove('hidden');
+                document.getElementById('twofa-setup-step1').classList.add('hidden');
+                document.getElementById('twofa-disable-section').classList.add('hidden');
+            }
+        } catch (err) {
+            console.error('Failed to load 2FA status:', err);
+        }
+    }
+
+    // Start 2FA setup - get QR code
+    if (twofaEnableBtn) {
+        twofaEnableBtn.addEventListener('click', async () => {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/auth/2fa/setup`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.token}` }
+                });
+
+                if (!res.ok) throw new Error('Failed to setup 2FA');
+
+                const data = await res.json();
+
+                // Display QR code (data.qr_code is base64 PNG)
+                document.getElementById('twofa-qr-code').src = `data:image/png;base64,${data.qr_code}`;
+                document.getElementById('twofa-secret').textContent = data.secret;
+
+                // Show setup step
+                document.getElementById('twofa-enable-btn').classList.add('hidden');
+                document.getElementById('twofa-setup-step1').classList.remove('hidden');
+                document.getElementById('twofa-verify-code').value = '';
+                document.getElementById('twofa-verify-code').focus();
+
+            } catch (err) {
+                alert('Failed to setup 2FA: ' + err.message);
+            }
+        });
+    }
+
+    // Verify and enable 2FA
+    if (twofaVerifyBtn) {
+        twofaVerifyBtn.addEventListener('click', async () => {
+            const code = document.getElementById('twofa-verify-code').value.trim();
+            const errorDiv = document.getElementById('twofa-verify-error');
+
+            if (code.length !== 6 || !/^\d+$/.test(code)) {
+                errorDiv.textContent = 'Please enter a valid 6-digit code';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/auth/2fa/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${state.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Verification failed');
+                }
+
+                // Success
+                errorDiv.classList.add('hidden');
+                alert('✅ 2FA has been enabled successfully!');
+                await load2FAStatus();
+
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Disable 2FA
+    if (twofaDisableBtn) {
+        twofaDisableBtn.addEventListener('click', async () => {
+            const code = document.getElementById('twofa-disable-code').value.trim();
+            const errorDiv = document.getElementById('twofa-disable-error');
+
+            if (code.length !== 6 || !/^\d+$/.test(code)) {
+                errorDiv.textContent = 'Please enter a valid 6-digit code';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to disable 2FA? This will make your account less secure.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/auth/2fa/disable`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${state.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to disable 2FA');
+                }
+
+                // Success
+                errorDiv.classList.add('hidden');
+                alert('2FA has been disabled.');
+                await load2FAStatus();
+
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Reset modal state
+    function reset2FAModal() {
+        document.getElementById('twofa-setup-step1').classList.add('hidden');
+        document.getElementById('twofa-disable-section').classList.add('hidden');
+        document.getElementById('twofa-verify-code').value = '';
+        document.getElementById('twofa-disable-code').value = '';
+        document.getElementById('twofa-verify-error').classList.add('hidden');
+        document.getElementById('twofa-disable-error').classList.add('hidden');
     }
 
 }
