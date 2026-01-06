@@ -104,13 +104,15 @@ export async function setupSeedRecovery(seedPhrase) {
     const salt = generateSalt();
     const verifier = await deriveSeedVerifier(seedPhrase, salt);
 
-    const response = await apiRequest('/api/v1/seed/setup', {
-        method: 'POST',
-        body: JSON.stringify({
+    const response = await apiRequest(
+        '/api/v1/seed/setup',
+        'POST',
+        {
             verifier: verifier,
             salt: uint8ArrayToBase64(salt)
-        })
-    });
+        }
+    );
+
 
     return response;
 }
@@ -125,12 +127,14 @@ export async function verifySeedForRecovery(seedPhrase, saltBase64) {
     const salt = base64ToUint8Array(saltBase64);
     const verifier = await deriveSeedVerifier(seedPhrase, salt);
 
-    const response = await apiRequest('/api/v1/seed/verify', {
-        method: 'POST',
-        body: JSON.stringify({
+    const response = await apiRequest(
+        '/api/v1/seed/verify',
+        'POST',
+        {
             verifier: verifier
-        })
-    });
+        }
+    );
+
 
     return response;
 }
@@ -141,12 +145,14 @@ export async function verifySeedForRecovery(seedPhrase, saltBase64) {
  * @returns {Promise<{salt: string}>}
  */
 export async function getRecoverySalt(email) {
-    const response = await apiRequest('/api/v1/seed/salt', {
-        method: 'POST',
-        body: JSON.stringify({
+    const response = await apiRequest(
+        '/api/v1/seed/salt',
+        'POST',
+        {
             email: email
-        })
-    });
+        }
+    );
+
 
     return response;
 }
