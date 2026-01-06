@@ -43,3 +43,4 @@ export async function request(endpoint, method = "GET", body = null) {
         throw error;
     }
 }
+export { request as apiRequest };

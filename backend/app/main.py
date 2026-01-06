@@ -30,12 +30,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"(chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna|https://pallium-vault\.vercel\.app|https://www\.pallium\.click|https://pallium\.click)",
-
-    allow_credentials=True,
+    allow_origin_regex=r"^(chrome-extension://nakmkbeoeoecdpgkefjomdcaciccjfna|https://pallium-vault\.vercel\.app|https://www\.pallium\.click|https://pallium\.click|http://localhost:5500|http://127\.0\.0\.1:5500)$",
+    allow_credentials=False,  # 🔥 PHẢI FALSE
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
