@@ -235,9 +235,12 @@
                     <div id="seed-phrase-display" class="bg-gray-900 p-4 rounded border border-gray-700 font-mono text-lg text-center text-yellow-400 leading-relaxed select-all">
                         <!-- Seed phrase will be displayed here -->
                     </div>
-                    <div class="flex justify-center mt-3">
+                    <div class="flex justify-center gap-4 mt-3">
                         <button type="button" id="copy-seed-btn" class="text-sm text-gray-400 hover:text-white flex items-center gap-1">
                             📋 Copy to Clipboard
+                        </button>
+                        <button type="button" id="download-seed-btn" class="text-sm text-gray-400 hover:text-white flex items-center gap-1">
+                            💾 Download Seed Backup
                         </button>
                     </div>
                 </div>
@@ -301,6 +304,7 @@
         import { initAuth } from './src/auth.js';
         document.addEventListener('DOMContentLoaded', () => {
             initAuth();
+
         });
     </script>
 </body>
