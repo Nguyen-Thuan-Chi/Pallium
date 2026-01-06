@@ -97,6 +97,10 @@ async function deriveKeyFromPassword(password, saltString) {
         ["deriveKey"]
     );
 
+    // FIX: Decode Base64 salt to raw Uint8Array for PBKDF2
+    // Using TextEncoder on Base64 string is WRONG - it treats Base64 chars as UTF-8
+    const saltBytes = b64ToBuff(saltString);
+
     // Derive AES-GCM key using PBKDF2
     // CRITICAL: extractable must be TRUE to allow exportKey for AuthKey derivation
     // NOTE: keyUsages should only contain valid AES-GCM usages (encrypt/decrypt)
@@ -104,7 +108,7 @@ async function deriveKeyFromPassword(password, saltString) {
     return window.crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
-            salt: enc.encode(saltString),
+            salt: saltBytes,  // FIX: Use decoded salt bytes, NOT encoded string
             iterations: 100000,
             hash: "SHA-256"
         },
@@ -426,18 +430,18 @@ export function initAuth() {
         }
 
         // Generate seed phrase for recovery (client-side only)
+        // generateSeedPhrase returns a space-separated string
         const seedPhrase = generateSeedPhrase(12);
 
         // Store pending registration data
         pendingRegistration = {
             username: user,
             password: pass,
-            seedPhrase: seedPhrase
+            seedPhrase: seedPhrase  // Already a string
         };
 
-        // Display seed phrase on screen
-        document.getElementById('seed-phrase-display').textContent =
-          Array.isArray(seedPhrase) ? seedPhrase.join(' ') : seedPhrase;
+        // Display seed phrase on screen (seedPhrase is always a string)
+        document.getElementById('seed-phrase-display').textContent = seedPhrase;
 
 
         // Hide register screen, show seed backup screen
@@ -469,14 +473,16 @@ export function initAuth() {
 
     // --- SEED BACKUP: Confirm button handler ---
     document.getElementById('confirm-seed-backup-btn').addEventListener('click', async () => {
+        const errDiv = document.getElementById('seed-backup-error');
         if (!pendingRegistration) {
             seedBackupScreen.classList.add('hidden-screen');
             loginScreen.classList.remove('hidden-screen');
             return;
         }
 
-        const errDiv = document.getElementById('seed-backup-error');
-        const { username: user, password: pass, seedPhrase } = pendingRegistration;
+        // FIX: Access values directly, don't destructure seedPhrase to avoid closure leak
+        const user = pendingRegistration.username;
+        const pass = pendingRegistration.password;
 
         try {
             errDiv.textContent = "Creating secure vault...";
@@ -527,12 +533,27 @@ export function initAuth() {
                 state.token = loginData.access_token;
 
                 // STEP 6: Set up seed recovery on server (sends verifier, NOT seed)
+                // FIX: Access seedPhrase directly from pendingRegistration, wipe after use
                 errDiv.textContent = "Setting up recovery...";
-                await setupSeedRecovery(seedPhrase);
+                const recoveryRes = await setupSeedRecovery(pendingRegistration.seedPhrase, state.token);
+
+                // FIX: Wipe seed phrase from memory IMMEDIATELY after use
+                if (pendingRegistration) {
+                    pendingRegistration.seedPhrase = null;
+                }
+
+                if (!recoveryRes || recoveryRes.success !== true) {
+                    throw new Error("Seed recovery setup failed");
+                }
+
+                errDiv.textContent = "Recovery setup complete.";
 
                 // STEP 7: Clear token after setup (user will log in manually)
                 state.token = null;
                 state.masterKey = null;
+            } else {
+                // FIX: Auto-login failed - seed recovery won't be set up, abort registration
+                throw new Error("Auto-login failed during registration. Please contact support.");
             }
 
             // Clear pending registration and seed phrase from memory
@@ -553,7 +574,7 @@ export function initAuth() {
             state.token = null;
             state.masterKey = null;
 
-            errDiv.textContent = err.message;
+            errDiv.textContent = err?.message || String(err);
             errDiv.classList.remove('hidden');
             errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
             errDiv.classList.add('bg-red-900/30', 'border-red-900', 'text-red-400');
