@@ -632,6 +632,71 @@ If you lose it, you CANNOT recover your account.
         document.getElementById('password').value = "";
     });
 
+    // --- EXPORT VAULT LOGIC (Offline Encrypted Backup) ---
+    document.getElementById('export-vault-btn').addEventListener('click', async () => {
+        try {
+            if (!state.masterKey) {
+                alert("❌ Error: Master key not available. Please log in again.");
+                return;
+            }
+
+            if (!state.items || state.items.length === 0) {
+                alert("❌ Error: Vault is empty. Nothing to export.");
+                return;
+            }
+
+            // Prepare vault data for export (encrypted items only - no plaintext)
+            const vaultExportData = state.items.map(item => ({
+                id: item.id,
+                label: item.label,
+                encrypted_data: item.encrypted_data,
+                iv: item.iv,
+                risk_level: item.risk_level
+            }));
+
+            // Create backup structure
+            const backupPayload = {
+                version: 1,
+                exported_at: new Date().toISOString(),
+                items_count: vaultExportData.length,
+                vault_items: vaultExportData
+            };
+
+            // Encrypt the entire backup payload using the master key
+            const encrypted = await encryptBlob(backupPayload);
+
+            // Create final backup file structure
+            const backupFile = {
+                version: 1,
+                exported_at: new Date().toISOString(),
+                ciphertext: encrypted.data,
+                iv: encrypted.iv,
+                encryption: "aes-gcm",
+                kdf: "pbkdf2"
+            };
+
+            // Create and download the backup file
+            const fileContent = JSON.stringify(backupFile, null, 2);
+            const blob = new Blob([fileContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = 'pallium-vault.enc';
+
+            // Trigger download
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+
+            alert("✅ Vault exported successfully!\n\nYour backup file 'pallium-vault.enc' has been downloaded.\n\n⚠️ This file is encrypted with your master password.\nKeep it safe for offline recovery.");
+
+        } catch (err) {
+            console.error("Export error:", err);
+            alert("❌ Export failed: " + err.message);
+        }
+    });
+
     // --- UI EVENTS ---
     document.getElementById('toggle-raw').addEventListener('change', () => {
         renderGrid(state.items);

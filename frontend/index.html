@@ -93,9 +93,14 @@
                 </h2>
                 <p class="text-sm text-gray-400 mt-1">Logged in as <span id="user-display" class="text-blue-400 font-mono">...</span></p>
             </div>
-            <button id="logout-btn" class="text-red-400 hover:text-red-300 text-sm border border-red-900/50 hover:border-red-500 px-4 py-2 rounded bg-red-900/10 transition flex items-center gap-2">
-                <span>🔒</span> Log Out
-            </button>
+            <div class="flex items-center gap-3">
+                <button id="export-vault-btn" class="text-blue-400 hover:text-blue-300 text-sm border border-blue-900/50 hover:border-blue-500 px-4 py-2 rounded bg-blue-900/10 transition flex items-center gap-2">
+                    <span>💾</span> Export Vault
+                </button>
+                <button id="logout-btn" class="text-red-400 hover:text-red-300 text-sm border border-red-900/50 hover:border-red-500 px-4 py-2 rounded bg-red-900/10 transition flex items-center gap-2">
+                    <span>🔒</span> Log Out
+                </button>
+            </div>
         </header>
 
         <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
