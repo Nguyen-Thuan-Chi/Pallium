@@ -1,4 +1,4 @@
-import { WORDLIST } from './wordlist.js';
+import { WORD_LIST as WORDLIST } from './wordlist.js';
 import { apiRequest } from './api.js';
 
 /**
@@ -150,3 +150,14 @@ export async function getRecoverySalt(email) {
 
     return response;
 }
+
+// Alias for backward compatibility
+export { getRecoverySalt as getSeedSalt };
+export { verifySeedForRecovery as verifySeedAndResetPassword };
+
+// Placeholder for checkSeedRecoveryStatus (not implemented yet)
+export async function checkSeedRecoveryStatus() {
+    // TODO: Implement actual status check
+    return { hasRecovery: false };
+}
+
