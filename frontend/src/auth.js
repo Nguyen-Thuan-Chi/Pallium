@@ -423,6 +423,58 @@ export function initAuth() {
             return;
         }
 
+        // Generate seed phrase for recovery (client-side only)
+        let seedPhrase = generateSeedPhrase(12);
+
+        // Create and force download the seed phrase file
+        const fileContent = `========================================
+PALLIUM SEED PHRASE - KEEP THIS SAFE!
+========================================
+
+⚠️ WARNING: This is your ONLY backup for account recovery.
+Anyone with this phrase can reset your password.
+Store it securely offline. Never share it with anyone.
+
+YOUR SEED PHRASE (12 words):
+${seedPhrase}
+
+========================================
+This seed phrase is shown ONLY ONCE.
+Pallium does NOT store your seed phrase.
+If you lose it, you CANNOT recover your account.
+========================================
+`;
+
+        const blob = new Blob([fileContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = 'pallium-seed.txt';
+
+        // Force download - this triggers the browser's download mechanism
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(url);
+
+        // Confirm download before proceeding
+        const confirmDownload = confirm(
+            "⚠️ IMPORTANT: Your seed phrase file has been downloaded.\n\n" +
+            "Please verify you have saved 'pallium-seed.txt' before continuing.\n\n" +
+            "This is your ONLY chance to save your recovery phrase.\n\n" +
+            "Click OK to continue with registration, or Cancel to abort."
+        );
+
+        if (!confirmDownload) {
+            // User cancelled - clear seed and abort
+            seedPhrase = null;
+            errDiv.textContent = "Registration cancelled. Please try again and save your seed phrase.";
+            errDiv.classList.remove('hidden');
+            errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
+            errDiv.classList.add('bg-red-900/30', 'border-red-900', 'text-red-400');
+            return;
+        }
+
         try {
             errDiv.textContent = "Creating secure vault...";
             errDiv.classList.remove('hidden');
@@ -454,7 +506,36 @@ export function initAuth() {
                 throw new Error(data.detail || "Registration failed");
             }
 
-            alert("✅ Registration Successful! Please Log In.");
+            // STEP 5: Auto-login to set up seed recovery
+            state.masterKey = tempMasterKey;
+
+            const formData = new URLSearchParams();
+            formData.append('username', user);
+            formData.append('password', authKey);
+
+            const loginRes = await fetch(`${API_URL}/api/v1/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (loginRes.ok) {
+                const loginData = await loginRes.json();
+                state.token = loginData.access_token;
+
+                // STEP 6: Set up seed recovery on server (sends verifier, NOT seed)
+                errDiv.textContent = "Setting up recovery...";
+                await setupSeedRecovery(seedPhrase);
+
+                // STEP 7: Clear token after setup (user will log in manually)
+                state.token = null;
+                state.masterKey = null;
+            }
+
+            // Clear seed phrase from memory immediately
+            seedPhrase = null;
+
+            alert("✅ Registration Successful! Your seed phrase has been saved.\nPlease Log In.");
             document.getElementById('register-form').reset();
             registerScreen.classList.add('hidden-screen');
             loginScreen.classList.remove('hidden-screen');
@@ -462,6 +543,11 @@ export function initAuth() {
             errDiv.classList.add('hidden');
 
         } catch (err) {
+            // Clear seed phrase on error
+            seedPhrase = null;
+            state.token = null;
+            state.masterKey = null;
+
             errDiv.textContent = err.message;
             errDiv.classList.remove('hidden');
             errDiv.classList.remove('bg-blue-900/30', 'border-blue-900', 'text-blue-400');
