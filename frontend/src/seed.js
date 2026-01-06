@@ -1,5 +1,5 @@
 import { WORD_LIST as WORDLIST } from './wordlist.js';
-import { apiRequest } from './api.js';
+import { API_URL } from './config.js';
 
 /**
  * Generate a seed phrase by randomly selecting words from the wordlist
@@ -98,23 +98,38 @@ function base64ToUint8Array(base64) {
 /**
  * Setup seed recovery - stores verifier on server
  * @param {string} seedPhrase - The seed phrase (shown to user, never stored)
+ * @param {string} accessToken - REQUIRED: Valid access token from login
  * @returns {Promise<{success: boolean}>}
  */
-export async function setupSeedRecovery(seedPhrase) {
+export async function setupSeedRecovery(seedPhrase, accessToken) {
+    // FIX: Require explicit token - no hidden global state dependency
+    if (!accessToken) {
+        throw new Error('Access token is required for seed recovery setup');
+    }
+
     const salt = generateSalt();
     const verifier = await deriveSeedVerifier(seedPhrase, salt);
 
-    const response = await apiRequest(
-        '/api/v1/seed/setup',
-        'POST',
-        {
+    // FIX: Use explicit fetch with token instead of apiRequest
+    // This removes dependency on sessionStorage and makes token flow explicit
+    const response = await fetch(`${API_URL}/api/v1/seed/setup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
             verifier: verifier,
             salt: uint8ArrayToBase64(salt)
-        }
-    );
+        })
+    });
 
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Seed recovery setup failed');
+    }
 
-    return response;
+    return await response.json();
 }
 
 /**
@@ -127,16 +142,23 @@ export async function verifySeedForRecovery(seedPhrase, saltBase64) {
     const salt = base64ToUint8Array(saltBase64);
     const verifier = await deriveSeedVerifier(seedPhrase, salt);
 
-    const response = await apiRequest(
-        '/api/v1/seed/verify',
-        'POST',
-        {
+    // FIX: Use direct fetch instead of apiRequest (no auth required for recovery)
+    const response = await fetch(`${API_URL}/api/v1/seed/verify`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
             verifier: verifier
-        }
-    );
+        })
+    });
 
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Seed verification failed');
+    }
 
-    return response;
+    return await response.json();
 }
 
 /**
@@ -145,16 +167,23 @@ export async function verifySeedForRecovery(seedPhrase, saltBase64) {
  * @returns {Promise<{salt: string}>}
  */
 export async function getRecoverySalt(email) {
-    const response = await apiRequest(
-        '/api/v1/seed/salt',
-        'POST',
-        {
+    // FIX: Use direct fetch instead of apiRequest (no auth required for recovery)
+    const response = await fetch(`${API_URL}/api/v1/seed/salt`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
             email: email
-        }
-    );
+        })
+    });
 
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to get recovery salt');
+    }
 
-    return response;
+    return await response.json();
 }
 
 // Alias for backward compatibility
