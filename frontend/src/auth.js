@@ -4,11 +4,9 @@
 import { API_URL } from './config.js';
 import {
     generateSeedPhrase,
-    setupSeedRecovery,
-    getSeedSalt,
-    verifySeedAndResetPassword,
-    checkSeedRecoveryStatus
+    setupSeedRecovery
 } from './seed.js';
+
 
 const state = {
     token: null,
@@ -695,5 +693,27 @@ If you lose it, you CANNOT recover your account.
             console.error("Save error:", e);
         }
     });
+    // --- FORGOT PASSWORD (SEED RECOVERY ENTRY) ---
+    const forgotBtn = document.getElementById('forgot-password-btn');
+    const backBtn = document.getElementById('back-to-login-btn');
+
+    if (forgotBtn && backBtn) {
+        forgotBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            document.getElementById('login-screen').classList.add('hidden-screen');
+            document.getElementById('recovery-screen').classList.remove('hidden-screen');
+
+            console.log("🔑 Entered seed recovery mode");
+        });
+
+        backBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            document.getElementById('recovery-screen').classList.add('hidden-screen');
+            document.getElementById('login-screen').classList.remove('hidden-screen');
+        });
+    }
+
 }
 
