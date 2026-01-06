@@ -37,6 +37,11 @@
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded transition shadow-lg shadow-blue-900/20">
                     Unlock Vault
                 </button>
+                <div class="text-center">
+                    <button type="button" id="forgot-password-btn" class="text-purple-400 hover:text-purple-300 text-xs">
+                        Forgot Password? Recover with Seed Phrase
+                    </button>
+                </div>
             </form>
 
             <div class="mt-6 text-center border-t border-gray-700 pt-4">
@@ -159,6 +164,136 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Seed Recovery Screen -->
+    <div id="recovery-screen" class="hidden-screen flex items-center justify-center min-h-screen bg-[url('https://grainy-gradients.vercel.app/noise.svg')]">
+        <div class="bg-gray-800/90 backdrop-blur p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-600"></div>
+
+            <h1 class="text-2xl font-bold text-center text-purple-400 mb-2">🔑 Password Recovery</h1>
+            <p class="text-center text-gray-500 text-xs mb-6 uppercase tracking-widest">Using Seed Phrase</p>
+
+            <div id="recovery-error" class="bg-red-900/30 border border-red-900 text-red-400 text-sm p-3 rounded mb-4 hidden text-center"></div>
+            <div id="recovery-success" class="bg-green-900/30 border border-green-900 text-green-400 text-sm p-3 rounded mb-4 hidden text-center"></div>
+
+            <form id="recovery-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Username</label>
+                    <input type="text" id="recovery-username" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm" placeholder="Your username" required>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Seed Phrase (12 words)</label>
+                    <textarea id="recovery-seed-phrase" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm font-mono" placeholder="word1 word2 word3 ... word12" required></textarea>
+                    <p class="text-[10px] text-gray-600 mt-1">Enter your 12-word seed phrase separated by spaces</p>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">New Master Password</label>
+                    <input type="password" id="recovery-new-password" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm" placeholder="New strong password" required>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Confirm New Password</label>
+                    <input type="password" id="recovery-confirm-password" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 focus:outline-none focus:border-purple-500 transition text-sm" placeholder="Confirm password" required>
+                </div>
+                <button type="submit" id="recovery-submit-btn" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-4 rounded transition shadow-lg shadow-purple-900/20">
+                    Reset Password
+                </button>
+            </form>
+
+            <div class="mt-4 p-3 bg-yellow-900/20 border border-yellow-800 rounded">
+                <p class="text-yellow-400 text-xs">
+                    ⚠️ <strong>Warning:</strong> Resetting your password will NOT recover your encrypted vault data.
+                    You will need to re-add your items after password reset.
+                </p>
+            </div>
+
+            <div class="mt-6 text-center border-t border-gray-700 pt-4">
+                <button id="back-to-login-btn" class="text-gray-400 hover:text-white text-sm">← Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seed Setup Modal (shown after registration) -->
+    <div id="seed-setup-modal" class="hidden-screen fixed inset-0 bg-black/95 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-lg border border-purple-600 relative">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-600"></div>
+
+            <h3 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-purple-400">🌱</span> Set Up Seed Phrase Recovery
+            </h3>
+            <p class="text-gray-400 text-sm mb-4">
+                A seed phrase lets you recover your account if you forget your master password.
+            </p>
+
+            <div id="seed-setup-step1" class="space-y-4">
+                <div class="bg-purple-900/20 border border-purple-800 p-4 rounded">
+                    <p class="text-purple-300 text-sm mb-3">
+                        <strong>⚠️ IMPORTANT:</strong> Write down this seed phrase and store it securely.
+                        It will only be shown <strong>ONCE</strong>.
+                    </p>
+                    <div id="seed-phrase-display" class="bg-gray-900 p-4 rounded border border-gray-700 font-mono text-lg text-center text-yellow-400 leading-relaxed select-all">
+                        <!-- Seed phrase will be displayed here -->
+                    </div>
+                    <div class="flex justify-center mt-3">
+                        <button type="button" id="copy-seed-btn" class="text-sm text-gray-400 hover:text-white flex items-center gap-1">
+                            📋 Copy to Clipboard
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-2 mt-4">
+                    <input type="checkbox" id="seed-confirm-checkbox" class="mt-1 w-4 h-4 rounded bg-gray-700 border-gray-600">
+                    <label for="seed-confirm-checkbox" class="text-sm text-gray-300">
+                        I have written down my seed phrase and stored it in a safe place.
+                        I understand it will NOT be shown again.
+                    </label>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                    <button type="button" id="skip-seed-btn" class="text-gray-400 hover:text-white px-4 py-2 text-sm transition">
+                        Skip for Now
+                    </button>
+                    <button type="button" id="confirm-seed-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded text-sm font-bold shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        I've Saved It - Continue
+                    </button>
+                </div>
+            </div>
+
+            <div id="seed-setup-step2" class="hidden space-y-4">
+                <div class="bg-green-900/20 border border-green-800 p-4 rounded text-center">
+                    <p class="text-green-400 text-lg mb-2">✅ Seed Recovery Enabled!</p>
+                    <p class="text-gray-400 text-sm">
+                        Your seed phrase has been securely configured.
+                        Remember: only YOU know the seed phrase - we never store it.
+                    </p>
+                </div>
+                <div class="flex justify-center mt-4">
+                    <button type="button" id="seed-setup-done-btn" class="bg-green-600 hover:bg-green-500 text-white px-8 py-2 rounded text-sm font-bold shadow-lg transition">
+                        Continue to Login
+                    </button>
+                </div>
+            </div>
+
+            <div id="seed-setup-error" class="hidden bg-red-900/30 border border-red-900 text-red-400 text-sm p-3 rounded mt-4 text-center"></div>
+        </div>
+    </div>
+
+    <!-- Seed Recovery Setup Button in Vault (for existing users) -->
+    <div id="seed-status-banner" class="hidden fixed bottom-4 right-4 bg-purple-900/90 border border-purple-700 p-4 rounded-lg shadow-xl max-w-sm z-40">
+        <p class="text-purple-300 text-sm mb-2">
+            🌱 <strong>Seed Recovery Not Set Up</strong>
+        </p>
+        <p class="text-gray-400 text-xs mb-3">
+            Protect your account by setting up seed phrase recovery.
+        </p>
+        <div class="flex gap-2">
+            <button id="setup-seed-now-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded text-xs font-bold transition">
+                Set Up Now
+            </button>
+            <button id="dismiss-seed-banner-btn" class="text-gray-500 hover:text-white px-3 py-1 text-xs transition">
+                Later
+            </button>
         </div>
     </div>
 

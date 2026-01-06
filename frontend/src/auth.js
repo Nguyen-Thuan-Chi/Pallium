@@ -2,6 +2,13 @@
 // PALLIUM AUTH & VAULT LOGIC (FINAL - FIXED)
 // ==========================================
 import { API_URL } from './config.js';
+import {
+    generateSeedPhrase,
+    setupSeedRecovery,
+    getSeedSalt,
+    verifySeedAndResetPassword,
+    checkSeedRecoveryStatus
+} from './seed.js';
 
 const state = {
     token: null,
